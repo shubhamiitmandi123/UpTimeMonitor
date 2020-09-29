@@ -1,14 +1,11 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"up_time_monitor/database"
 	mt "up_time_monitor/monitor"
-	st "up_time_monitor/structures"
 
 	"github.com/gin-gonic/gin"
-	uuid "github.com/satori/go.uuid"
 )
 
 // PatchInfo : Updates url information into database
@@ -18,44 +15,33 @@ import (
 // If url was activated start crawling it otherwise leave it
 // Returns json responce of Updated information
 func PatchInfo(c *gin.Context) {
-	id, err := uuid.FromString(c.Param("id"))
-	if err != nil {
-		fmt.Println("Error while Converting UID", err.Error())
-	}
+	id := stringToUUID(c.Param("id"))
 	dataBase := database.GetDatabase()
-	info, _ := dataBase.GetURLByID(id)
-	monitor := mt.GetMonitor()
-
-	var req st.Request
-	req.FailureThreshold = -1
-	req.CrawlTimeout = -1
-	req.Frequency = -1
-	c.BindJSON(&req)
-
-	if req.FailureThreshold != -1 {
-		info.FailureThreshold = req.FailureThreshold
+	fetchedInfo, err := dataBase.GetURLByID(id)
+	if err != nil { // if url record is not found in database
+		handleDataBaseError(c, err)
+	} else {
+		monitor := mt.GetMonitor()
+		updatedInfo := getUpdatedURLInfo(c, fetchedInfo)
+		err := dataBase.UpdateDatabase(updatedInfo)
+		if err != nil { // if unable to update Information
+			handleDataBaseError(c, err)
+		} else {
+			// if url was being Crawling then stop crawling it
+			// And start crawling with updated Parameters
+			if fetchedInfo.Crawling == true {
+				monitor.StopMonitoring(id)
+				monitor.StartMonitoring(updatedInfo)
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"id":                updatedInfo.ID,
+				"url":               updatedInfo.URL,
+				"crawl_timeout":     updatedInfo.CrawlTimeout,
+				"frequency":         updatedInfo.Frequency,
+				"failure_threshold": updatedInfo.FailureThreshold,
+				"status":            updatedInfo.Status,
+				"failure_count":     updatedInfo.FailureCount,
+			})
+		}
 	}
-	if req.Frequency != -1 {
-		info.Frequency = req.Frequency
-	}
-	if req.CrawlTimeout != -1 {
-		info.CrawlTimeout = req.CrawlTimeout
-	}
-	info.Status = "active"
-	info.FailureCount = 0
-	dataBase.UpdateDatabase(info)
-
-	if info.Crawling == true {
-		monitor.StopMonitoring(id)
-		monitor.StartMonitoring(info)
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"id":                info.ID,
-		"url":               info.URL,
-		"crawl_timeout":     info.CrawlTimeout,
-		"frequency":         info.Frequency,
-		"failure_threshold": info.FailureThreshold,
-		"status":            info.Status,
-		"failure_count":     info.FailureCount,
-	})
 }

@@ -1,30 +1,33 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"up_time_monitor/database"
 	mt "up_time_monitor/monitor"
 
 	"github.com/gin-gonic/gin"
-	uuid "github.com/satori/go.uuid"
 )
 
 // DeleteURL : Deletes a URL from database
 // if url was active then stops crawling before delete
 func DeleteURL(c *gin.Context) {
-	id, err := uuid.FromString(c.Param("id"))
-	if err != nil {
-		fmt.Println("Error while Converting UID", err.Error())
-	}
+	id := stringToUUID(c.Param("id"))
 
 	dataBase := database.GetDatabase()
 	monitor := mt.GetMonitor()
 
-	info, _ := dataBase.GetURLByID(id)
-	if info.Crawling == true {
-		monitor.StopMonitoring(id)
+	info, err := dataBase.GetURLByID(id)
+	if err != nil { // if url not found in database
+		handleDataBaseError(c, err)
+	} else {
+		if info.Crawling == true { // stop Monitoring Before Deleteing if it is being monitered
+			monitor.StopMonitoring(id)
+		}
+		err := dataBase.DeleteFromDatabase(id)
+		if err != nil { //if unable to Delete
+			handleDataBaseError(c, err)
+		} else {
+			c.String(http.StatusNoContent, "Deleted ")
+		}
 	}
-	dataBase.DeleteFromDatabase(id)
-	c.String(http.StatusNoContent, "Deleted ")
 }

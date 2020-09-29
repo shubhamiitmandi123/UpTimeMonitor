@@ -7,31 +7,34 @@ import (
 	mt "up_time_monitor/monitor"
 
 	"github.com/gin-gonic/gin"
-
-	uuid "github.com/satori/go.uuid"
 )
 
 // Activater : Starts crawling to a Deactivated or inactive url
-// if not activated start crawling
+// if not activated then starts crawling
 // else return StatusNotAcceptable with error Massage
 func Activater(c *gin.Context) {
-	sid := c.Param("id")
-	id, err := uuid.FromString(sid)
-	if err != nil {
-		fmt.Println("Error while Converting UID", err.Error())
-	}
+	id := stringToUUID(c.Param("id"))
 	dataBase := database.GetDatabase()
-	info, _ := dataBase.GetURLByID(id)
-	monitor := mt.GetMonitor()
-	if info.Crawling == false {
-		info.Crawling = true
-		info.FailureCount = 0
-		info.Status = "active"
-		dataBase.UpdateDatabase(info)
-		monitor.StartMonitoring(info)
-		c.String(http.StatusOK, "Activated ")
+	info, err := dataBase.GetURLByID(id)
+
+	if err != nil { // if record not found
+		handleDataBaseError(c, err)
 	} else {
-		msg := fmt.Sprintf("Error!!!!! Already activated ")
-		c.String(http.StatusNotAcceptable, msg)
+		monitor := mt.GetMonitor()
+		if info.Crawling == false { // if url was Inactivated
+			info.Crawling = true
+			info.FailureCount = 0
+			info.Status = "active"
+			err := dataBase.UpdateDatabase(info)
+			if err != nil { //database update fails
+				handleDataBaseError(c, err)
+			} else {
+				monitor.StartMonitoring(info) //start Monitoring
+				c.String(http.StatusOK, "Activated ")
+			}
+		} else { // else error already activated
+			msg := fmt.Sprintf("Error!!!!! Already activated ")
+			c.String(http.StatusNotAcceptable, msg)
+		}
 	}
 }

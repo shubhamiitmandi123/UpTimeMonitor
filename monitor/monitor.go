@@ -53,20 +53,22 @@ func (r *MyMonitor) StartMonitoringFromDatabase() {
 func (r *MyMonitor) StartMonitoring(urlinfo st.URLInfo) {
 
 	go func() {
-		ticker := time.NewTicker(time.Duration(urlinfo.Frequency) * time.Second)
-		requestStatus := make(chan string)
+		ticker := time.NewTicker(time.Duration(urlinfo.Frequency) * time.Second) // trigers at rate of Frequency
+		requestStatus := make(chan string)                                       // result of http request will come on requestStatus channel
 		dataBase := database.GetDatabase()
 		for {
 			select {
-			case idStop := <-r.MonitorStp:
-				if idStop == urlinfo.ID {
+			case idStop := <-r.MonitorStp: // if deactivated Monitoring
+				if idStop == urlinfo.ID { // check if this url need to be Deactivate
 					return // stop monitering
 				}
 			case <-ticker.C: // at Frequency time
 				fmt.Printf("Request to %s\t", urlinfo.URL)
 				go Request(urlinfo.URL, urlinfo.CrawlTimeout, requestStatus)
-			case st := <-requestStatus:
+			case st := <-requestStatus: // if status for request comes
 				fmt.Println("Status: ", st)
+				// if not 200 OK increase Failure count and update it to Database
+				// if Failure count reaches to failure threshold then mark url inactive , stop crawling and update status into database
 				if st != "200 OK" {
 					urlinfo.FailureCount++
 					dataBase.UpdateColumnInDatabase(urlinfo.ID, "failure_count", urlinfo.FailureCount)

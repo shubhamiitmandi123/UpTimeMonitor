@@ -17,28 +17,30 @@ func URLRegister(c *gin.Context) {
 	var req st.Request
 	c.BindJSON(&req)
 	dataBase := database.GetDatabase()
-	id, _ := dataBase.CreateDataBase(req)
-
-	urlinfo := st.URLInfo{
-		Base:             st.Base{ID: id},
-		URL:              req.URL,
-		CrawlTimeout:     req.CrawlTimeout,
-		Frequency:        req.Frequency,
-		FailureThreshold: req.FailureThreshold,
-		FailureCount:     0,
-		Status:           "active",
-		Crawling:         true,
+	id, err := dataBase.CreateDataBase(req)
+	if err != nil { // if unable to create record
+		handleDataBaseError(c, err)
+	} else {
+		urlinfo := st.URLInfo{
+			Base:             st.Base{ID: id},
+			URL:              req.URL,
+			CrawlTimeout:     req.CrawlTimeout,
+			Frequency:        req.Frequency,
+			FailureThreshold: req.FailureThreshold,
+			FailureCount:     0,
+			Status:           "active",
+			Crawling:         true,
+		}
+		monitor := mt.GetMonitor()
+		monitor.StartMonitoring(urlinfo) //start Monitoring URL
+		c.JSON(http.StatusOK, gin.H{
+			"id":                id,
+			"url":               req.URL,
+			"crawl_timeout":     req.CrawlTimeout,
+			"frequency":         req.Frequency,
+			"failure_threshold": req.FailureThreshold,
+			"status":            "active",
+			"failure_count":     0,
+		})
 	}
-
-	monitor := mt.GetMonitor()
-	monitor.StartMonitoring(urlinfo)
-	c.JSON(http.StatusOK, gin.H{
-		"id":                id,
-		"url":               req.URL,
-		"crawl_timeout":     req.CrawlTimeout,
-		"frequency":         req.Frequency,
-		"failure_threshold": req.FailureThreshold,
-		"status":            "active",
-		"failure_count":     0,
-	})
 }

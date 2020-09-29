@@ -7,27 +7,30 @@ import (
 	mt "up_time_monitor/monitor"
 
 	"github.com/gin-gonic/gin"
-	uuid "github.com/satori/go.uuid"
 )
 
 // Deactivater : Stops crawling a activated url
 //if activated => stop crawling and update status
 //else return StatusNotAcceptable with error Massage
 func Deactivater(c *gin.Context) {
-	sid := c.Param("id")
-	id, err := uuid.FromString(sid)
-	if err != nil {
-		fmt.Println("Error while Converting UID", err.Error())
-	}
+	id := stringToUUID(c.Param("id"))
 	dataBase := database.GetDatabase()
-	info, _ := dataBase.GetURLByID(id)
-	monitor := mt.GetMonitor()
-	if info.Crawling == true {
-		dataBase.UpdateColumnInDatabase(id, "crawling", false)
-		monitor.StopMonitoring(id)
-		c.String(http.StatusOK, "Deactivated ")
+	info, err := dataBase.GetURLByID(id)
+	if err != nil { //if url not found in database
+		handleDataBaseError(c, err)
 	} else {
-		msg := fmt.Sprintf("Error!!!!! \nAlready deactivated %s", sid)
-		c.String(http.StatusNotAcceptable, msg)
+		monitor := mt.GetMonitor()
+		if info.Crawling == true {
+			err := dataBase.UpdateColumnInDatabase(id, "crawling", false)
+			if err != nil { //if fail to update in database
+				handleDataBaseError(c, err)
+			} else {
+				monitor.StopMonitoring(id) //Stop Monitoring
+				c.String(http.StatusOK, "Deactivated ")
+			}
+		} else {
+			msg := fmt.Sprintf("Error!!!!! Already deactivated\n")
+			c.String(http.StatusNotAcceptable, msg)
+		}
 	}
 }

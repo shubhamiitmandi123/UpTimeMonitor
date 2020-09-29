@@ -3,12 +3,12 @@ package handler_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
 	"up_time_monitor/database"
 	mockdb "up_time_monitor/database/mocks"
 	"up_time_monitor/handler"
@@ -17,6 +17,7 @@ import (
 	st "up_time_monitor/structures"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/assert/v2"
 	"github.com/golang/mock/gomock"
 	uuid "github.com/satori/go.uuid"
 )
@@ -37,24 +38,24 @@ func TestDeleteHandler(t *testing.T) {
 	router.DELETE("/urls/:id", handler.DeleteURL)
 
 	req, _ := http.NewRequest("DELETE", "http://localhost:8080/urls/afcec707-0bb4-4251-9f34-c07744935e6d", nil)
-	w := httptest.NewRecorder()
+	w1 := httptest.NewRecorder()
 	urlinfo := st.URLInfo{
 		Base:     st.Base{ID: id},
 		Crawling: true,
 	}
+	// Case 1: when URL is prasent in database
 	mockDataBase.EXPECT().GetURLByID(id).Return(urlinfo, nil)
 	mockMonitor.EXPECT().StopMonitoring(id)
 	mockDataBase.EXPECT().DeleteFromDatabase(id)
+	router.ServeHTTP(w1, req)
+	assert.Equal(t, w1.Code, http.StatusNoContent)
 
-	router.ServeHTTP(w, req)
+	// Case 2 : when URL is not Prasent in database
+	w2 := httptest.NewRecorder()
+	mockDataBase.EXPECT().GetURLByID(id).Return(urlinfo, errors.New("Record not found"))
+	router.ServeHTTP(w2, req)
+	assert.Equal(t, w2.Code, http.StatusInternalServerError)
 
-	if w.Code != http.StatusNoContent {
-		t.Fail()
-	}
-	_, err1 := ioutil.ReadAll(w.Body)
-	if err1 != nil {
-		t.Fail()
-	}
 }
 
 func TestFethInfo(t *testing.T) {
@@ -69,8 +70,7 @@ func TestFethInfo(t *testing.T) {
 	router.GET("/urls/:id", handler.FetchInfo)
 
 	req, _ := http.NewRequest("GET", "http://localhost:8080/urls/afcec707-0bb4-4251-9f34-c07744935e6d", nil)
-	w := httptest.NewRecorder()
-
+	w1 := httptest.NewRecorder()
 	urlinfo := st.URLInfo{
 		Base:             st.Base{ID: id},
 		URL:              "this is test url",
@@ -82,16 +82,14 @@ func TestFethInfo(t *testing.T) {
 		Crawling:         true,
 	}
 
+	// case : when URL is prasent is database
 	mockDataBase.EXPECT().GetURLByID(id).Return(urlinfo, nil)
+	router.ServeHTTP(w1, req)
+	assert.Equal(t, w1.Code, http.StatusOK)
 
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fail()
-	}
-	v, err1 := ioutil.ReadAll(w.Body)
-	if err1 != nil {
-		fmt.Println(err1.Error())
+	v, err := ioutil.ReadAll(w1.Body)
+	if err != nil {
+		fmt.Println(err.Error())
 		t.Fail()
 	}
 	var info struct {
@@ -103,10 +101,9 @@ func TestFethInfo(t *testing.T) {
 		Status           string    `json:"status"`
 		FailureThreshold int       `json:"failure_threshold"`
 	}
-
-	err := json.Unmarshal(v, &info)
-	if err != nil {
-		fmt.Println(err.Error())
+	err1 := json.Unmarshal(v, &info)
+	if err1 != nil {
+		fmt.Println(err1.Error())
 		t.Fail()
 	}
 	checkEquality(t, urlinfo.Frequency, info.Frequency)
@@ -116,6 +113,13 @@ func TestFethInfo(t *testing.T) {
 	checkEquality(t, urlinfo.CrawlTimeout, info.CrawlTimeout)
 	checkEquality(t, urlinfo.ID, info.ID)
 	checkEquality(t, urlinfo.Status, info.Status)
+
+	//case when URL is not prasent in database
+	w2 := httptest.NewRecorder()
+
+	mockDataBase.EXPECT().GetURLByID(id).Return(urlinfo, errors.New("Record not found"))
+	router.ServeHTTP(w2, req)
+	assert.Equal(t, w2.Code, http.StatusInternalServerError)
 }
 
 func TestActivater(t *testing.T) {
