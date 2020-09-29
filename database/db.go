@@ -70,8 +70,8 @@ func (r *GormDatabase) ConnectToDatabase() *gorm.DB {
 // GetURLByID : for Fetching a url information from database
 func (r *GormDatabase) GetURLByID(id uuid.UUID) (st.URLInfo, error) {
 	var info st.URLInfo
-	r.Db.First(&info, "id = ?", id)
-	return info, nil
+	err := r.Db.First(&info, "id = ?", id)
+	return info, err.Error
 }
 
 // UpdateDatabase : Update a recod into database
@@ -100,22 +100,16 @@ func (r *GormDatabase) CreateDataBase(info st.Request) (uuid.UUID, error) {
 		Status:           "active",
 		Crawling:         true,
 	}
-	if r.Db.Create(&urlinfo).Error != nil {
-		log.Panic("Unable to create Record.")
-	} else {
-		log.Printf("Record Created")
-	}
-	return urlinfo.ID, nil
+	err := r.Db.Create(&urlinfo)
+	return urlinfo.ID, err.Error
 }
 
 // UpdateColumnInDatabase : Update a single column into database
 func (r *GormDatabase) UpdateColumnInDatabase(id uuid.UUID, columnName string, value interface{}) error {
-	r.Db.Model(&st.URLInfo{}).Where("id = ?", id).UpdateColumn(columnName, value)
-	return nil
+	return r.Db.Model(&st.URLInfo{}).Where("id = ?", id).UpdateColumn(columnName, value).Error
 }
 
 // DeleteFromDatabase : Delete a record from database
 func (r *GormDatabase) DeleteFromDatabase(id uuid.UUID) error {
-	r.Db.Where("id=?", id).Delete(&st.URLInfo{})
-	return nil
+	return r.Db.Where("id=?", id).Delete(&st.URLInfo{}).Error
 }
