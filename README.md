@@ -178,7 +178,9 @@ export DB_HOST="mysql_host_IP_Address"
 export DB_PORT="Port_of_mysql_server"
 ```
 - Note: if your mysql server is installed on host machine then change host to host.docker.internal
-
+```
+export DB_HOST="host.docker.internal"
+```
 - Install modules
 ``` 
 go mod download
@@ -201,10 +203,8 @@ docker build -t schoudhary2608/uptimemonitor .
 docker run -p 8080:8080 -e DOCKER=true -e DB_USER='user' -e DB_PASS='password' -e DB_HOST='host' -e DB_PORT='3306' -e DB_NAME='database_name' schoudhary2608/uptimemonitor
 
 ```
-- Note: if your mysql server is installed on host machine then change host to host.docker.internal
-```
-export DB_HOST="host.docker.internal"
-```
+- Note: if your mysql server is installed on host machine then provide host "host.docker.internal"
+
 - Docker image is also available on docker hub
 ```
 schoudhary2608/uptimemonitor 
