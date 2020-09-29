@@ -12,17 +12,17 @@ COPY . .
 RUN go mod download
 
 # RUN go build .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o UpTimeMonitor .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o moniter .
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-COPY --from=builder /UpTimeMonitor/UpTimeMonitor .
+COPY --from=builder /UpTimeMonitor/moniter .
 COPY --from=builder /UpTimeMonitor/.env . 
 
 EXPOSE 8080
 
 
-CMD ["./UpTimeMonitor"]
+CMD ["./moniter"]
