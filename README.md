@@ -196,7 +196,7 @@ go build .
 7. if You wish to run in a docker container
 - Build image 
 ```
-docker build -t schoudhary2608/uptimemonitor.
+docker build -t schoudhary2608/uptimemonitor .
 ```
 - Run container
 ```
