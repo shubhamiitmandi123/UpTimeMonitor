@@ -17,9 +17,10 @@ func Request(url string, crawlTimeout int, channel chan string) {
 	go func() {
 		resp, err := http.Get(url) // send http request
 		if err != nil {
-			fmt.Println(err.Error())
+			fmt.Println("ERROR! Request to: ", url, " failed")
+		} else {
+			requestChannel <- resp.Status //send status to waiting routine
 		}
-		requestChannel <- resp.Status //send status to waiting routine
 	}()
 	var msg string
 	select {
